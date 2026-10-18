@@ -59,7 +59,10 @@ namespace ns_searcher
                 {
                     auto &item = tokens_map[elem.doc_id]; // 存在则获取，不存在则新建
                     item.doc_id = elem.doc_id;
-                    item.weight = elem.weight;
+                    // 多关键词时权重必须累加：同一文档被多个查询词命中，相关性应当叠加。
+                    // 原来写的是 item.weight = elem.weight（覆盖），后一个词的权重会把前面
+                    // 词的权重冲掉，导致多关键词查询的排序没有意义。
+                    item.weight += elem.weight;
                     item.words.push_back(elem.word);
                 }
             }

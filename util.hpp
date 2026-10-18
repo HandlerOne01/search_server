@@ -98,22 +98,33 @@ namespace ns_util
             in.close();
         }
 
-        // 搜索模式分词 + 过滤停用词，最终结果写入 out
+        // 判断一个分词结果是否为空白（空串、纯空格、\t、\r、\n 等）
+        // 说明：cppjieba 的 CutForSearch 对英文文本会把空格也切成一个词，如果不拦掉，
+        //       空格会被建进倒排索引，任何带空格的查询都会命中"空格"，等于按文档长度排全表。
+        static bool IsBlankToken(const std::string &s)
+        {
+            for (size_t i = 0; i < s.size(); i++)
+            {
+                unsigned char c = static_cast<unsigned char>(s[i]);
+                if (c != ' ' && c != '\t' && c != '\r' && c != '\n' && c != '\v' && c != '\f')
+                    return false;
+            }
+            return true; // 空串或纯空白
+        }
+
+        // 搜索模式分词 + 过滤停用词与空白词，最终结果追加到 out
+        //  注意：这里不能一边遍历一边 out->erase()。空白词在英文语料里占比很高，
+        //  边遍历边 erase 是 O(n^2) 的元素搬移，会让索引构建慢一个数量级（实测 31s -> 178s）。
         void CutStringHelper(const std::string &src, std::vector<std::string> *out)
         {
-            jieba.CutForSearch(src, *out);
-            for (auto iter = out->begin(); iter != out->end();)
+            std::vector<std::string> words;
+            jieba.CutForSearch(src, words);
+            for (size_t i = 0; i < words.size(); i++)
             {
-                auto it = stop_words.find(*iter);
-                if (it != stop_words.end())
-                {
-                    // 说明当前的string 是暂停词，需要去掉
-                    iter = out->erase(iter);
-                }
-                else
-                {
-                    iter++;
-                }
+                const std::string &w = words[i];
+                if (stop_words.find(w) != stop_words.end() || IsBlankToken(w))
+                    continue; // 停用词或空白词，丢弃
+                out->push_back(w);
             }
         }
 
