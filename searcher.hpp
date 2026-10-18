@@ -13,9 +13,10 @@ namespace ns_searcher
     struct InvertedElemPrint
     {
         uint64_t doc_id;
-        int weight;
+        int weight;             // 词频：10×标题词频 + 正文词频（索引里存的加权词频，累加得到）
+        double score;           // 相关性得分：由 weight 与文档长度算出，排序用它
         std::vector<std::string> words;
-        InvertedElemPrint() : doc_id(0), weight(0) {}
+        InvertedElemPrint() : doc_id(0), weight(0), score(0.0) {}
     };
 
     class Searcher
@@ -64,6 +65,17 @@ namespace ns_searcher
                     // 词的权重冲掉，导致多关键词查询的排序没有意义。
                     item.weight += elem.weight;
                     item.words.push_back(elem.word);
+
+                    // 相关性得分：tf / (tf + 0.8 + 正文长度/4500)
+                    //   - 词频越大，单次命中的边际收益越低（次线性压缩）
+                    //   - 文档越长，同样的词频越不值钱（长度归一化），避免长文档靠堆词频霸榜
+                    //   - 0.8 是基础饱和项，4500 是长度尺度（按本语料标定：均值 1.9KB、最长 299KB）
+                    ns_index::DocInfo *doc = index->GetForwardIndex(elem.doc_id);
+                    if (doc != nullptr)
+                    {
+                        double dl = doc->content.size();
+                        item.score += elem.weight / (elem.weight + 0.8 + dl / 4500.0);
+                    }
                 }
             }
             for (const auto &item : tokens_map)
@@ -71,9 +83,27 @@ namespace ns_searcher
                 inverted_list_all.push_back(std::move(item.second));
             }
 
-            // 3.[合并排序]：汇总查找结果，按照相关性(weight)降序排序
+            // 3.[标题加分]：标题是人工摘要，命中的信号比正文强
+            //    标题（归一化后）等于整个查询 +1.4，包含查询 +0.45
+            std::string nq = ns_util::StringUtil::Normalize(query);
+            if (!nq.empty())
+            {
+                for (auto &item : inverted_list_all)
+                {
+                    ns_index::DocInfo *doc = index->GetForwardIndex(item.doc_id);
+                    if (doc == nullptr)
+                        continue;
+                    std::string nt = ns_util::StringUtil::Normalize(doc->title);
+                    if (nt == nq)
+                        item.score += 1.4;
+                    else if (nt.find(nq) != std::string::npos)
+                        item.score += 0.45;
+                }
+            }
+
+            // 4.[合并排序]：按相关性得分降序
             std::sort(inverted_list_all.begin(), inverted_list_all.end(), [](const InvertedElemPrint &e1, const InvertedElemPrint &e2)
-                      { return e1.weight > e2.weight; });
+                      { return e1.score > e2.score; });
 
             // 4.[构建]:根据查找出来的结果，构建json串 -- jsoncpp --通过jsoncpp完成序列化&&反序列化
             //    只返回权重最高的前 MAX_RETURN 条：热门词（如 unordered_map）命中上万篇时，

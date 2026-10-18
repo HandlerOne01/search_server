@@ -5,6 +5,7 @@
 #include <string>
 #include <fstream>
 #include <mutex>
+#include <cctype>
 #include <unordered_map>
 #include <boost/algorithm/string.hpp>
 #include "log.hpp"
@@ -42,6 +43,31 @@ namespace ns_util
         static void Split(const std::string &target, std::vector<std::string> *out, const std::string &sep)
         {
             boost::split(*out, target,boost::is_any_of(sep), boost::token_compress_on);
+        }
+
+        // 归一化：转小写，把非字母数字字符换成空格，并压缩连续空格、去掉首尾空格
+        // 用途：比较"标题"与"查询"是否相同/包含，避免大小写和标点（如 Thread-Safety vs thread safety）干扰
+        static std::string Normalize(const std::string &src)
+        {
+            std::string out;
+            bool last_is_space = true; // 初值 true 表示开头不要空格
+            for (size_t i = 0; i < src.size(); i++)
+            {
+                unsigned char c = static_cast<unsigned char>(src[i]);
+                if (std::isalnum(c))
+                {
+                    out += static_cast<char>(std::tolower(c));
+                    last_is_space = false;
+                }
+                else if (last_is_space == false)
+                {
+                    out += ' ';
+                    last_is_space = true;
+                }
+            }
+            if (!out.empty() && out[out.size() - 1] == ' ')
+                out.erase(out.size() - 1);
+            return out;
         }
     };
 
