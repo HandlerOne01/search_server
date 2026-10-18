@@ -1,0 +1,5 @@
+* text=auto eol=lf
+
+# 语料用 0x03 作字段分隔符，词典是第三方原始文件：都按原始字节保存
+data/raw_html/raw.txt -text
+cppjieba/dict/** -text

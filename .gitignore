@@ -1,0 +1,7 @@
+# 构建产物
+parser
+debug
+http_server
+search_server
+*.o
+*.exe
