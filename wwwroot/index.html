@@ -302,7 +302,7 @@
     }).join('');
     results.scrollTop = 0;
     summary.textContent = '共 ' + list.length + ' 条结果' +
-      (list.length >= MAX_SHOW ? '（按权重排序，最多返回 ' + MAX_SHOW + ' 条）' : '') +
+      (list.length >= MAX_SHOW ? '（按相关性排序，最多返回 ' + MAX_SHOW + ' 条）' : '') +
       '，用时 ' + ms + ' ms';
   }
 
