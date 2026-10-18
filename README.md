@@ -103,8 +103,13 @@ HTTP 服务、路由与静态文件服务由仓库内的 `net/` 自研网络层�
 ### 1. 获取代码
 
 ```bash
-git clone https://gitee.com/a2186988646/search_engine.git
-cd search_engine
+# GitHub
+git clone https://github.com/HandlerOne01/search_server.git
+cd search_server
+
+# 或 Gitee（国内访问更快）
+git clone https://gitee.com/a2186988646/search_server.git
+cd search_server
 ```
 
 ### 2. 编译
