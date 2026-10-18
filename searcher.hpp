@@ -73,9 +73,16 @@ namespace ns_searcher
                       { return e1.weight > e2.weight; });
 
             // 4.[构建]:根据查找出来的结果，构建json串 -- jsoncpp --通过jsoncpp完成序列化&&反序列化
+            //    只返回权重最高的前 MAX_RETURN 条：热门词（如 unordered_map）命中上万篇时，
+            //    全量返回会产生数 MB 的响应体，传输耗时长且容易被中间链路中断，前端也渲染不动。
+            const int MAX_RETURN = 100;
+            int returned = 0;
             Json::Value root;
             for (auto &item : inverted_list_all)
             {
+                if (returned >= MAX_RETURN)
+                    break;
+
                 ns_index::DocInfo *doc = index->GetForwardIndex(item.doc_id);
                 if (doc == nullptr)
                     continue;
@@ -87,6 +94,7 @@ namespace ns_searcher
                 elem["id"] = (int)item.doc_id;
                 elem["weight"] = item.weight;
                 root.append(elem);
+                returned++;
             }
             // Json::StyledWriter writer;
             Json::FastWriter writer;
